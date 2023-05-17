@@ -1,3 +1,4 @@
+--upgrade python
 Flask
 Gunicorn
 Pandas
