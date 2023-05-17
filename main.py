@@ -122,5 +122,4 @@ def upload_file():
         return send_file(export_path, as_attachment=True)
 
 if __name__ == '__main__':
-    #app.run(debug=True)
-    app.run(host="0.0.0.0")
+    app.run()
