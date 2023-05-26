@@ -5,16 +5,17 @@ import pandas as pd
 clientes = []
 
 def importaBase(diretorio, formato):
-    if formato.upper() == '.XLSX' | '.XLS':
-        df = pd.read_excel(diretorio)
-        values = (df['CNPJ'].values.tolist())
-        return values
-    elif formato.upper() == '.CSV' | '.TXT':
-        df = pd.read_csv(diretorio)
-        values = (df['CNPJ'].values.tolist())
-        return values
-    else:
-        print('Opção inválida')
+    match formato.upper():
+        case '.XLSX' | '.XLS':
+            df = pd.read_excel(diretorio)
+            values = (df['CNPJ'].values.tolist())
+            return values
+        case '.CSV' | '.TXT':
+            df = pd.read_csv(diretorio)
+            values = (df['CNPJ'].values.tolist())
+            return values
+        case _:
+            print('Opção inválida')
         
 def pegaDados(lista):
     global clientes
@@ -101,6 +102,8 @@ def home():
 
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
+    global clientes
+    clientes = []
     file_path = ''
     export_path = ''
     if datetime.datetime.now().minute in (0, 15, 30, 45):
@@ -121,4 +124,4 @@ def upload_file():
         return send_file(export_path, as_attachment=True)
 
 if __name__ == '__main__':
-    app.run()
+    app.run(host="0.0.0.0")
