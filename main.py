@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, send_file
-import csv, os, requests, time, datetime
+import csv, os, requests, time, datetime, openpyxl
 import pandas as pd
 
 clientes = []
@@ -84,11 +84,22 @@ def export(lista, export_directory):
     csv_file = export_directory
 
     with open(csv_file, 'w', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
+            writer = csv.DictWriter(csvfile, delimiter=";", fieldnames=csv_columns)
             writer.writeheader()
             for data in lista:
                 writer.writerow(data)
                 print(f"Export de: {data['cnpj']} - {data['razao']}")
+                
+    #OPENPYXL
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    
+    with open(csv_file) as f:
+        reader = csv.reader(f, delimiter=';')
+        for row in reader:
+            ws.append(row)
+            
+    wb.save(csv_file.replace(".csv", ".xlwsx"))
 
 def rodaProj(import_directory, export_directory, formato):
     pegaDados(importaBase(import_directory, formato))
@@ -118,7 +129,7 @@ def upload_file():
                                  f'{current_time}-{file.filename}') #rodaProj(file_path, export_directory)
         export_path = os.path.join(app.root_path, 
                                    'uploads', 
-                                   f'processado_{current_time}-{os.path.splitext(file.filename)[0]}.csv') #rodaProj(file_path, export_path)
+                                   f'processado_{current_time}-{os.path.splitext(file.filename)[0]}.xlsx') #rodaProj(file_path, export_path)
         file.save(file_path)
         rodaProj(file_path, export_path, os.path.splitext(file.filename)[1])
         return send_file(export_path, as_attachment=True)
