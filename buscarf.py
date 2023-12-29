@@ -1,27 +1,32 @@
-import csv, requests, openpyxl
+import requests
 import pandas as pd
-from flask import request, send_file
-import os, datetime
 
-clientes = []
+importado, processado = [], []
 
-def importaBase(diretorio, formato):
+def importar(diretorio, formato):
     match formato.upper():
         case '.XLSX' | '.XLS':
-            df = pd.read_excel(diretorio)
-            values = (df['CNPJ'].values.tolist())
-            return values
+            try:
+                df = pd.read_excel(diretorio)
+                importado.append(df['CNPJ'].values.tolist())
+                print('Base importada com sucesso!')
+            except KeyError:
+                print('Coluna inexistente')
         case '.CSV' | '.TXT':
-            df = pd.read_csv(diretorio)
-            values = (df['CNPJ'].values.tolist())
-            return values
+            try:
+                df = pd.read_csv(diretorio)
+                importado.append(df['CNPJ'].values.tolist())
+                print('Base importada com sucesso!')
+            except KeyError:
+                print('Coluna inexistente')
         case _:
-            print('Opção inválida')
+            print('Arquivo não suportado. Por favor, utilize arquivos nos formatos .XLSX, .XLS, .CSV ou .TXT')
         
-def pegaDados(lista):
-    global clientes
-    completa = ''
-    for cnpj in lista:
+def buscar():
+    
+    print('\n##### INICIANDO BUSCA DE DADOS #####\n')
+       
+    for cnpj in importado[0]:
         completa = ''
         for x in range(14 - len(str(cnpj))):
             completa += '0'
@@ -36,6 +41,7 @@ def pegaDados(lista):
         response = requests.request("GET", url, headers=headers, data=payload)
 
         cliente = response.json()
+        
         if 'message' in cliente:
             dados = {
                 'cnpj': cnpj,
@@ -52,11 +58,8 @@ def pegaDados(lista):
                 'segmento': '',
                 'cadastro': '',
                 'matriz/filial': '',
+                'natureza juridica' : ''
             }
-
-            print(f"Fazendo o append de {dados['razao']} - {dados['cnpj']}")
-            clientes.append(dados)
-            completa = ''
         else:
             dados = {
                 'cnpj': cliente['cnpj'],
@@ -73,57 +76,25 @@ def pegaDados(lista):
                 'segmento': cliente['cnae_fiscal_descricao'],
                 'cadastro': cliente['descricao_situacao_cadastral'],
                 'matriz/filial': cliente['descricao_identificador_matriz_filial'],
+                'natureza juridica': cliente['natureza_juridica']
             }
 
-            print(f"Fazendo o append de {dados['razao']} - {dados['cnpj']}")
-            clientes.append(dados)
-            completa = ''
+        print(f"Armazenando dados de {dados['razao']} - {dados['cnpj']}")
+        processado.append(dados)
+        completa = ''
 
-def export(lista, export_directory):
-    csv_columns = ['cnpj', 'razao', 'nome', 'cidade', 'uf', 'bairro', 'rua', 'numero', 'email', 'telefone 1',
-                   'telefone 2', 'segmento', 'cadastro', 'matriz/filial']
-    csv_file = export_directory
+    print('\n##### FIM DA BUSCA DE DADOS #####\n')        
 
-    with open(csv_file, 'w', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, delimiter=";", fieldnames=csv_columns)
-            writer.writeheader()
-            for data in lista:
-                writer.writerow(data)
-                print(f"Export de: {data['cnpj']} - {data['razao']}")
-                
-    #OPENPYXL
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    
-    with open(csv_file) as f:
-        reader = csv.reader(f, delimiter=';')
-        for row in reader:
-            ws.append(row)
-            
-    wb.save(csv_file.replace(".csv", ".xlsx"))
+def processar():
+    try:
+        df = pd.DataFrame(processado)
+        print('Dados armazenados com sucesso!')
+        return df
+    except Exception as e:
+        print(f'Erro ao armazenar dados: {e}')
+        return pd.DataFrame()
 
-def rodaProj(import_directory, export_directory, formato):
-    pegaDados(importaBase(import_directory, formato))
-    export(clientes, export_directory)
-    
-def sobeLista(app):
-    global clientes
-    clientes = []
-    file_path = ''
-    export_path = ''
-    if datetime.datetime.now().minute in (0, 15, 30, 45):
-        for file_name in os.listdir(os.path.join(app.root_path, 'uploads')):
-            os.remove(os.path.join(os.path.join(app.root_path, 'uploads'), file_name))
-    
-    if request.method == 'POST':
-        current_time = f'{datetime.datetime.now().hour}{datetime.datetime.now().minute}{datetime.datetime.now().second}'
-        file = request.files['import']
-        file_path = os.path.join(app.root_path, 
-                                 'uploads', 
-                                 f'{current_time}-{file.filename}')
-        export_path = os.path.join(app.root_path, 
-                                   'uploads', 
-                                   f'processado_{current_time}-{os.path.splitext(file.filename)[0]}.xlsx')
-        file.save(file_path)
-        rodaProj(file_path, export_path, os.path.splitext(file.filename)[1])
-        return send_file(export_path, as_attachment=True)
+def exportar(diretorio, formato):
+    importar(diretorio, formato)
+    buscar()
+    return processar()
