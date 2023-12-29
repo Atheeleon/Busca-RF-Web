@@ -2,3 +2,4 @@ django
 pandas
 gunicorn
 requests
+openpyxl
